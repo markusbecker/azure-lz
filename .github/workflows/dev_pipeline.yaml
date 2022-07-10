@@ -3,9 +3,6 @@ on:
   pull_request:
     branches:
       - development
-  push:
-    branches:
-      - development
 
 permissions:
       id-token: write
@@ -89,5 +86,5 @@ jobs:
                   })
 
     - name: Terraform Apply
-      # if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      if: github.event.pull_request.merged == true
       run: terraform apply -auto-approve
