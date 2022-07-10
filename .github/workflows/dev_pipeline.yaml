@@ -1,5 +1,11 @@
 name: Run Azure Login with OpenID Connect
-on: [push]
+on: 
+  pull_request:
+    branches:
+      - development
+  push:
+    branches:
+      - development
 
 permissions:
       id-token: write
@@ -8,16 +14,13 @@ permissions:
 jobs: 
   build-and-deploy:
     runs-on: ubuntu-latest
-    #environment: development
-    #env:
-    #  ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-    #  ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-    #  ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+    environment: development
+    env:
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
     steps:
-    - name: Set env to staging
-      if: endsWith(github.ref, '/main')
-      run: |
-        echo "ENVIRONMENT=development" >> $GITHUB_ENV
+    # just an Azure CLI Test
     - name: 'Az CLI login'
       uses: azure/login@v1
       with:
@@ -30,7 +33,7 @@ jobs:
           az group list
           pwd 
   
-      # Checkout the repository to the GitHub Actions runner
+    # Checkout the repository to the GitHub Actions runner
     - name: Checkout
       uses: actions/checkout@v2
     
@@ -54,8 +57,37 @@ jobs:
     - name: Terraform Plan
       id: plan
       run: terraform plan -no-color
-      #if: github.event_name == 'pull_request'
+      # if: github.event_name == 'pull_request'
+
+    # Add the output of the plan to the PR
+    - name: Add Terraform Plan Comment
+      id: comment
+      uses: actions/github-script@v3
+      # if: github.event_name == 'pull_request'
       env:
-        ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-        ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-        ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+        PLAN: "terraform\n${{ steps.plan.outputs.stdout }}"
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+                  const output = `#### Terraform Format and Style 🖌\`${{ steps.fmt.outcome }}\`
+                  #### Terraform Initialization ⚙️\`${{ steps.init.outcome }}\`
+                  #### Terraform Plan 📖\`${{ steps.plan.outcome }}\`
+              
+                  <details><summary>Show Plan</summary>
+                  
+                  \`\`\`${process.env.PLAN}\`\`\`
+                  
+                  </details>
+                  
+                  *Pusher: @${{ github.actor }}, Action: \`${{ github.event_name }}\`, Workflow: \`${{ github.workflow }}\`*`;
+                    
+                  github.issues.createComment({
+                    issue_number: context.issue.number,
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    body: output
+                  })
+
+    - name: Terraform Apply
+      # if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      run: terraform apply -auto-approve
