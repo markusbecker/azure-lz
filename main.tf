@@ -1,4 +1,4 @@
 resource "azurerm_resource_group" "rg" {
-  name     = "tftestrg2"
+  name     = "tftestrg3"
   location = "germanywestcentral"
 }
