@@ -3,6 +3,7 @@ on:
   pull_request:
     branches:
       - development
+    types: [opened, reopened, synchronize, closed]
 
 permissions:
       id-token: write
@@ -85,6 +86,6 @@ jobs:
                     body: output
                   })
 
-    - name: Terraform Apply
-      if: github.event.pull_request.merged == true
+    - name: Terraform Apply (if closed & merged)
+      if: github.event.action == 'closed' && github.event.pull_request.merged == true
       run: terraform apply -auto-approve
